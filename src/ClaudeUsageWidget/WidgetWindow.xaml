@@ -1,0 +1,25 @@
+<Window x:Class="ClaudeUsageWidget.WidgetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ClaudeUsageWidget"
+        Title="Claude Usage"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight" WindowStartupLocation="Manual" Left="-10000" Top="-10000"
+        FontFamily="Segoe UI">
+    <!-- Margin leaves room for the drop shadow inside the transparent window. -->
+    <Border x:Name="Panel" Margin="12" Padding="14,10" CornerRadius="10"
+            Background="#B8141619" BorderThickness="1" BorderBrush="Transparent">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.4" Color="Black" />
+        </Border.Effect>
+        <StackPanel Orientation="Horizontal">
+            <local:RingGauge x:Name="Ring" VerticalAlignment="Center" />
+            <StackPanel Margin="12,0,0,0" VerticalAlignment="Center" MinWidth="110">
+                <TextBlock x:Name="ResetText" Foreground="White" FontSize="12" />
+                <TextBlock x:Name="CountdownText" Foreground="#99FFFFFF" FontSize="11" />
+                <TextBlock x:Name="DetailText" FontSize="11" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>
