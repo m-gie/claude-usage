@@ -69,6 +69,15 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Poll_clamped_high()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, """{"PollSeconds":99999999}""");
+
+        Assert.Equal(3600, new SettingsStore(SettingsPath).Load().PollSeconds);
+    }
+
+    [Fact]
     public void Poll_clamped()
     {
         Directory.CreateDirectory(_dir);

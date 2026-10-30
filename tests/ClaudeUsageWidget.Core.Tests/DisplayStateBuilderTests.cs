@@ -35,6 +35,15 @@ public class DisplayStateBuilderTests
         Assert.Equal("Claude: 62% · resets 16:40 · full ~15:55", s.Tooltip);
     }
 
+    [Fact]
+    public void Past_prediction_is_hidden()
+    {
+        var s = Build(FetchStatus.Ok, new SessionUsage(62, Reset), predicted: Now.AddMinutes(-1));
+
+        Assert.Null(s.DetailLine);
+        Assert.Equal("Claude: 62% · resets 16:40", s.Tooltip);
+    }
+
     [Theory]
     [InlineData(0, Level.Normal)]
     [InlineData(69.9, Level.Normal)]

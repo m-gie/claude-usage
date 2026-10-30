@@ -32,7 +32,8 @@ public static class CredentialsReader
 
             return new Credentials(token.GetString()!, DateTimeOffset.FromUnixTimeMilliseconds(expiresMs));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException
+                                       or ArgumentOutOfRangeException)
         {
             return null;
         }

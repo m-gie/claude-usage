@@ -29,6 +29,13 @@ public sealed class UsageMonitor(UsageClient client, TimeSpan baseInterval, Time
         _ = RunAsync(_stop.Token);
     }
 
+    /// <summary>After sleep the timers lag behind wall-clock time, so redraw now and fetch fresh data.</summary>
+    public void OnResume()
+    {
+        Post(Publish);
+        RefreshNow();
+    }
+
     public void RefreshNow()
     {
         if (_wake.CurrentCount == 0)
@@ -40,7 +47,16 @@ public sealed class UsageMonitor(UsageClient client, TimeSpan baseInterval, Time
         var interval = baseInterval;
         while (!ct.IsCancellationRequested)
         {
-            var result = await client.FetchAsync(ct);
+            FetchResult result;
+            try
+            {
+                result = await client.FetchAsync(ct);
+            }
+            catch (Exception) when (!ct.IsCancellationRequested)
+            {
+                // Never let one unexpected failure end polling; show it as an error and keep going.
+                result = new FetchResult(FetchStatus.Error, null);
+            }
             Post(() => Record(result));
             interval = PollSchedule.Next(baseInterval, interval, result.Status);
 

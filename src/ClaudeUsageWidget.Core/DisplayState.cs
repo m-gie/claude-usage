@@ -40,7 +40,7 @@ public static class DisplayStateBuilder
         {
             var percent = lastGood.Percent;
             string? detail = percent >= 100 ? "Limit reached"
-                : predictedFull is { } full ? $"full ~{Time(full)}"
+                : predictedFull is { } full && full > now ? $"full ~{Time(full)}"
                 : null;
             var tooltip = $"Claude: {FormatPercent(percent)} · "
                           + (lastGood.ResetsAt is { } r ? $"resets {Time(r)}" : "no active session")

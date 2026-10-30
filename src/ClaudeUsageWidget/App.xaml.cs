@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Windows;
 using ClaudeUsageWidget.Core;
+using Microsoft.Win32;
 
 namespace ClaudeUsageWidget;
 
@@ -75,10 +76,17 @@ public partial class App : Application
         _monitor.StateChanged += _tray.Apply;
 
         RegisterHotkey();
+        SystemEvents.PowerModeChanged += OnPowerModeChanged;
         _monitor.Start();
 
         if (_settings.WidgetVisible)
             _widget.Show();
+    }
+
+    private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume)
+            Dispatcher.BeginInvoke(() => _monitor?.OnResume());
     }
 
     private void RegisterHotkey()
@@ -129,6 +137,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         _hotkey.Dispose();
         _tray?.Dispose();
         _monitor?.Dispose();

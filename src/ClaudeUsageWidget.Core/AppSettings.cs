@@ -7,6 +7,7 @@ public sealed class AppSettings
 {
     public const string DefaultHotkey = "Ctrl+Alt+U";
     public const int MinPollSeconds = 15;
+    public const int MaxPollSeconds = 3600;
 
     public double? Left { get; set; }
     public double? Top { get; set; }
@@ -42,7 +43,7 @@ public sealed class SettingsStore(string path)
             settings = new AppSettings();
         }
 
-        settings.PollSeconds = Math.Max(settings.PollSeconds, AppSettings.MinPollSeconds);
+        settings.PollSeconds = Math.Clamp(settings.PollSeconds, AppSettings.MinPollSeconds, AppSettings.MaxPollSeconds);
         settings.Hotkey ??= AppSettings.DefaultHotkey;
         return settings;
     }

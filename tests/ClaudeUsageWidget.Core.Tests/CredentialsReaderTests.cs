@@ -52,6 +52,14 @@ public sealed class CredentialsReaderTests : IDisposable
     }
 
     [Fact]
+    public void Out_of_range_expiry_returns_null()
+    {
+        File.WriteAllText(_path, """{"claudeAiOauth":{"accessToken":"tok","expiresAt":9223372036854775807}}""");
+
+        Assert.Null(CredentialsReader.TryRead(_path));
+    }
+
+    [Fact]
     public void ToString_hides_token()
     {
         var creds = new Credentials("tok-secret", DateTimeOffset.UnixEpoch);
