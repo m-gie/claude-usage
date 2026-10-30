@@ -49,6 +49,14 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Saved_file_is_hand_editable()
+    {
+        new SettingsStore(SettingsPath).Save(new AppSettings());
+
+        Assert.Contains("\"Hotkey\": \"Ctrl+Alt+U\"", File.ReadAllText(SettingsPath));
+    }
+
+    [Fact]
     public void Corrupt_file_returns_defaults()
     {
         Directory.CreateDirectory(_dir);
