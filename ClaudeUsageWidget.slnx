@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ClaudeUsageWidget.Core/ClaudeUsageWidget.Core.csproj" />
+    <Project Path="src/ClaudeUsageWidget/ClaudeUsageWidget.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ClaudeUsageWidget.Core.Tests/ClaudeUsageWidget.Core.Tests.csproj" />
