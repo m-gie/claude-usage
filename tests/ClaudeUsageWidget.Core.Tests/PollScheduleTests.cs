@@ -85,20 +85,71 @@ public class PollScheduleTests
     [InlineData(0)]
     [InlineData(6)]
     [InlineData(59)]
-    public void Manual_refresh_is_blocked_within_a_minute_of_the_last_fetch(int secondsAgo)
+    [InlineData(90)]
+    [InlineData(119)]
+    public void Manual_refresh_is_blocked_within_two_minutes_of_the_last_fetch(int secondsAgo)
     {
         Assert.False(PollSchedule.AllowsManualRefresh(FetchStatus.Ok, Now.AddSeconds(-secondsAgo), Now.AddMinutes(2), Now));
     }
 
     [Fact]
-    public void Manual_refresh_is_allowed_a_minute_after_the_last_fetch()
+    public void Manual_refresh_is_allowed_two_minutes_after_the_last_fetch()
     {
-        Assert.True(PollSchedule.AllowsManualRefresh(FetchStatus.Ok, Now.AddSeconds(-60), Now.AddMinutes(1), Now));
+        Assert.True(PollSchedule.AllowsManualRefresh(FetchStatus.Ok, Now.AddSeconds(-120), Now.AddMinutes(1), Now));
     }
 
     [Fact]
     public void Manual_refresh_is_allowed_before_any_fetch()
     {
         Assert.True(PollSchedule.AllowsManualRefresh(null, lastFetchAt: null, Now.AddMinutes(2), Now));
+    }
+
+    [Fact]
+    public void First_fetch_is_immediate_without_saved_state()
+    {
+        Assert.Equal(TimeSpan.Zero, PollSchedule.InitialDelay(null, Now));
+    }
+
+    [Fact]
+    public void First_fetch_waits_out_the_gap_after_a_recent_fetch()
+    {
+        var state = new FetchState(Now.AddSeconds(-20), FetchStatus.Ok, Now.AddSeconds(100));
+
+        Assert.Equal(TimeSpan.FromSeconds(100), PollSchedule.InitialDelay(state, Now));
+    }
+
+    [Fact]
+    public void First_fetch_is_immediate_long_after_the_last_one()
+    {
+        var state = new FetchState(Now.AddMinutes(-5), FetchStatus.Ok, Now.AddMinutes(-2));
+
+        Assert.Equal(TimeSpan.Zero, PollSchedule.InitialDelay(state, Now));
+    }
+
+    [Theory]
+    [InlineData(FetchStatus.RateLimited)]
+    [InlineData(FetchStatus.ServerError)]
+    public void First_fetch_waits_out_a_saved_backoff(FetchStatus status)
+    {
+        var state = new FetchState(Now.AddMinutes(-2), status, Now.AddMinutes(4));
+
+        Assert.Equal(TimeSpan.FromMinutes(4), PollSchedule.InitialDelay(state, Now));
+    }
+
+    [Fact]
+    public void Saved_next_fetch_is_ignored_when_not_backing_off()
+    {
+        var state = new FetchState(Now.AddMinutes(-2), FetchStatus.Ok, Now.AddMinutes(4));
+
+        Assert.Equal(TimeSpan.Zero, PollSchedule.InitialDelay(state, Now));
+    }
+
+    [Fact]
+    public void First_fetch_delay_is_capped_at_one_hour()
+    {
+        // e.g. the clock moved back, or a corrupt but parseable file
+        var state = new FetchState(Now.AddDays(3), FetchStatus.RateLimited, Now.AddDays(3));
+
+        Assert.Equal(TimeSpan.FromHours(1), PollSchedule.InitialDelay(state, Now));
     }
 }

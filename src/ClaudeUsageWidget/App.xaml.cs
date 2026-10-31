@@ -63,7 +63,8 @@ public partial class App : Application
         _log.Write($"started v{typeof(App).Assembly.GetName().Version} (pid {Environment.ProcessId}), polling every {_settings.PollSeconds}s");
 
         var client = new UsageClient(_http, CredentialsReader.DefaultPath, TimeProvider.System);
-        _monitor = new UsageMonitor(client, TimeSpan.FromSeconds(_settings.PollSeconds), TimeProvider.System, _log)
+        _monitor = new UsageMonitor(client, TimeSpan.FromSeconds(_settings.PollSeconds), TimeProvider.System, _log,
+            new FetchStateStore(FetchStateStore.DefaultPath))
         {
             AlwaysShowEstimate = _settings.AlwaysShowEstimate,
         };

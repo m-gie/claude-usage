@@ -19,11 +19,11 @@ public static class PollSchedule
         return asked > doubled ? asked : doubled;
     }
 
-    /// <summary>The endpoint rate-limits requests even seconds apart, so on-demand fetches need a gap from the last one.</summary>
-    public static readonly TimeSpan MinManualGap = TimeSpan.FromMinutes(1);
+    /// <summary>The endpoint rate-limits requests less than about two minutes apart, so on-demand fetches wait that long.</summary>
+    public static readonly TimeSpan MinManualGap = TimeSpan.FromMinutes(2);
 
     /// <summary>
-    /// On-demand fetches (refresh, show, resume) wait at least a minute after the last fetch, and for the
+    /// On-demand fetches (refresh, show, resume) wait at least two minutes after the last fetch, and for the
     /// whole backoff after a rate limit or server error, since an early request only prolongs the limit.
     /// </summary>
     public static bool AllowsManualRefresh(FetchStatus? last, DateTimeOffset? lastFetchAt, DateTimeOffset nextFetchAt, DateTimeOffset now)
@@ -33,5 +33,20 @@ public static class PollSchedule
         return last is not { } status || !IsBackoff(status) || now >= nextFetchAt;
     }
 
-    private static bool IsBackoff(FetchStatus status) => status is FetchStatus.RateLimited or FetchStatus.ServerError;
+    /// <summary>
+    /// How long a freshly started widget waits before its first fetch: the rest of the gap after the last
+    /// fetch, or of a backoff still running from before the restart, capped at one hour.
+    /// </summary>
+    public static TimeSpan InitialDelay(FetchState? saved, DateTimeOffset now)
+    {
+        if (saved is null)
+            return TimeSpan.Zero;
+
+        var gap = saved.LastFetchAt + MinManualGap - now;
+        var backoff = IsBackoff(saved.LastStatus) ? saved.NextFetchAt - now : TimeSpan.Zero;
+        var wait = gap > backoff ? gap : backoff;
+        return wait <= TimeSpan.Zero ? TimeSpan.Zero : wait > MaxRetryAfter ? MaxRetryAfter : wait;
+    }
+
+    public static bool IsBackoff(FetchStatus status) => status is FetchStatus.RateLimited or FetchStatus.ServerError;
 }

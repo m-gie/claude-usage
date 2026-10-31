@@ -3,7 +3,8 @@ using ClaudeUsageWidget.Core;
 namespace ClaudeUsageWidget;
 
 /// <summary>Polls the usage endpoint and publishes display state on the thread that called Start.</summary>
-public sealed class UsageMonitor(UsageClient client, TimeSpan baseInterval, TimeProvider time, FileLog log) : IDisposable
+public sealed class UsageMonitor(UsageClient client, TimeSpan baseInterval, TimeProvider time, FileLog log, FetchStateStore state)
+    : IDisposable
 {
     private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(15);
 
@@ -38,8 +39,25 @@ public sealed class UsageMonitor(UsageClient client, TimeSpan baseInterval, Time
     public void Start()
     {
         _sync = SynchronizationContext.Current;
+
+        // Pick up where the last run left off, so restarting the app can't hit the endpoint too soon.
+        var saved = state.Load();
+        var interval = baseInterval;
+        if (saved is not null)
+        {
+            _lastFetchAt = saved.LastFetchAt;
+            _nextFetchAt = saved.NextFetchAt;
+            if (PollSchedule.IsBackoff(saved.LastStatus))
+            {
+                _status = saved.LastStatus;
+                var savedInterval = saved.NextFetchAt - saved.LastFetchAt;
+                interval = savedInterval > baseInterval ? savedInterval : baseInterval;
+                Publish();
+            }
+        }
+
         _tick = time.CreateTimer(_ => Post(Publish), null, TickInterval, TickInterval);
-        _ = RunAsync(_stop.Token);
+        _ = RunAsync(PollSchedule.InitialDelay(saved, time.GetUtcNow()), interval, saved, _stop.Token);
     }
 
     /// <summary>After sleep the timers lag behind wall-clock time, so redraw now and fetch fresh data.</summary>
@@ -50,7 +68,7 @@ public sealed class UsageMonitor(UsageClient client, TimeSpan baseInterval, Time
     }
 
     /// <summary>
-    /// Call on the thread that called Start. Skipped within a minute of the last fetch and during a backoff,
+    /// Call on the thread that called Start. Skipped within two minutes of the last fetch and during a backoff,
     /// so on-demand refreshes can't trigger or prolong a rate limit.
     /// </summary>
     public void RefreshNow(string reason)
@@ -66,14 +84,28 @@ public sealed class UsageMonitor(UsageClient client, TimeSpan baseInterval, Time
             _wake.Release();
     }
 
-    private async Task RunAsync(CancellationToken ct)
+    private async Task RunAsync(TimeSpan initialDelay, TimeSpan interval, FetchState? saved, CancellationToken ct)
     {
-        var interval = baseInterval;
+        if (initialDelay > TimeSpan.Zero)
+        {
+            log.Write($"first fetch in {initialDelay.TotalSeconds:0}s: last fetch {saved!.LastFetchAt.ToLocalTime():HH:mm:ss} "
+                      + $"was {saved.LastStatus}");
+            try
+            {
+                await _wake.WaitAsync(initialDelay, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+
         while (!ct.IsCancellationRequested)
         {
             FetchResult result;
             // Runs on the Start thread, like RefreshNow, so an in-flight fetch already counts as recent.
-            _lastFetchAt = time.GetUtcNow();
+            var fetchedAt = time.GetUtcNow();
+            _lastFetchAt = fetchedAt;
             try
             {
                 result = await client.FetchAsync(ct);
@@ -86,6 +118,7 @@ public sealed class UsageMonitor(UsageClient client, TimeSpan baseInterval, Time
             interval = PollSchedule.Next(baseInterval, interval, result.Status, result.RetryAfter);
             var nextFetchAt = time.GetUtcNow() + interval;
             log.Write(Describe(result, interval));
+            state.Save(new FetchState(fetchedAt, result.Status, nextFetchAt));
             Post(() => Record(result, nextFetchAt));
 
             try

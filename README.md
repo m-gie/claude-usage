@@ -16,7 +16,7 @@ A small always-on-top overlay for Windows that shows how much of your Claude **5
 
 ## How it gets the data
 
-The widget reads Claude Code's login token from `%USERPROFILE%\.claude\.credentials.json` and asks `https://api.anthropic.com/api/oauth/usage` — the same endpoint behind Claude Code's `/usage` screen — about once a minute.
+The widget reads Claude Code's login token from `%USERPROFILE%\.claude\.credentials.json` and asks `https://api.anthropic.com/api/oauth/usage` — the same endpoint behind Claude Code's `/usage` screen — every 3 minutes by default.
 
 - The token is only read. The widget never refreshes it, never writes the file, and never logs it.
 - Claude Code renews the token while you use it. If it has expired, the widget greys out and shows "Open Claude Code to refresh".
@@ -62,4 +62,4 @@ The output lands in `src/ClaudeUsageWidget/bin/Release/net10.0-windows/win-x64/p
 
 `%LOCALAPPDATA%\ClaudeUsageWidget\widget.log` records every fetch (status, HTTP code, `Retry-After`, next poll, error body), start and exit with the reason, refreshes, show/hide and what triggered it, second launches, sleep/resume, lock/unlock, display changes, Explorer restarts and unhandled exceptions. A `state:` line is written whenever what Windows reports about the widget changes: window visible or cloaked, its position and whether that is on a monitor, and whether the tray icon is still there. A `started` line with no `exiting` line before it means the previous run was killed or crashed. The log rotates to `widget.log.1` at 1 MB. The token is never logged.
 
-When the API rate-limits the widget (HTTP 429) or errors (5xx), it keeps the last reading, shows *Rate limited · updated HH:mm* or *Server error · updated HH:mm*, and backs off (doubling up to 10 min, or longer if the server sends `Retry-After`). The endpoint rate-limits even requests seconds apart, so *Refresh now*, showing the widget and resume from sleep are skipped within a minute of the last fetch and for the whole backoff.
+When the API rate-limits the widget (HTTP 429) or errors (5xx), it keeps the last reading, shows *Rate limited · updated HH:mm* or *Server error · updated HH:mm*, and backs off (doubling up to 10 min, or longer if the server sends `Retry-After`). The endpoint rate-limits requests less than about two minutes apart, so *Refresh now*, showing the widget and resume from sleep are skipped within two minutes of the last fetch and for the whole backoff. The last fetch time is kept in `%LOCALAPPDATA%\ClaudeUsageWidget\state.json`, so the same applies after restarting the app: the first fetch waits for the gap or backoff to pass.
