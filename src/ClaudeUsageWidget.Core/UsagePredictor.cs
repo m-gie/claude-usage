@@ -21,6 +21,7 @@ public sealed class UsagePredictor
         _samples.RemoveAll(s => at - s.At > Lookback);
     }
 
+    /// <summary>When the limit would be hit at the recent pace, even if that is after the reset; null without a usable pace.</summary>
     public DateTimeOffset? PredictFull()
     {
         if (_samples.Count < 2 || _resetsAt is null)
@@ -34,8 +35,7 @@ public sealed class UsagePredictor
             return null;
 
         var perMinute = delta / elapsed.TotalMinutes;
-        var projected = lastAt + TimeSpan.FromMinutes((100 - lastPercent) / perMinute);
-        return projected < _resetsAt ? projected : null;
+        return lastAt + TimeSpan.FromMinutes((100 - lastPercent) / perMinute);
     }
 
     private bool IsNewWindow(DateTimeOffset? resetsAt) =>

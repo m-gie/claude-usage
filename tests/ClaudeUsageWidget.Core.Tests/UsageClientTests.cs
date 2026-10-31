@@ -45,7 +45,7 @@ public sealed class UsageClientTests : IDisposable
 
         var result = await CreateClient().FetchAsync();
 
-        Assert.Equal(new FetchResult(FetchStatus.NotLoggedIn, null), result);
+        Assert.Equal(FetchStatus.NotLoggedIn, result.Status);
         Assert.Empty(_handler.Requests);
     }
 
@@ -63,7 +63,8 @@ public sealed class UsageClientTests : IDisposable
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized, FetchStatus.TokenExpired)]
     [InlineData(HttpStatusCode.TooManyRequests, FetchStatus.RateLimited)]
-    [InlineData(HttpStatusCode.ServiceUnavailable, FetchStatus.RateLimited)]
+    [InlineData(HttpStatusCode.InternalServerError, FetchStatus.ServerError)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, FetchStatus.ServerError)]
     [InlineData(HttpStatusCode.NotFound, FetchStatus.Error)]
     public async Task Http_status_maps_to_fetch_status(HttpStatusCode code, FetchStatus expected)
     {
@@ -71,7 +72,69 @@ public sealed class UsageClientTests : IDisposable
 
         var result = await CreateClient().FetchAsync();
 
-        Assert.Equal(new FetchResult(expected, null), result);
+        Assert.Equal(expected, result.Status);
+        Assert.Null(result.Usage);
+        Assert.Equal((int)code, result.HttpStatus);
+    }
+
+    [Fact]
+    public async Task Retry_after_seconds_is_reported()
+    {
+        _handler.Respond = _ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+        {
+            Headers = { RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(90)) },
+        };
+
+        var result = await CreateClient().FetchAsync();
+
+        Assert.Equal(TimeSpan.FromSeconds(90), result.RetryAfter);
+    }
+
+    [Fact]
+    public async Task Retry_after_date_is_relative_to_now()
+    {
+        _handler.Respond = _ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+        {
+            Headers = { RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(_time.GetUtcNow().AddMinutes(4)) },
+        };
+
+        var result = await CreateClient().FetchAsync();
+
+        Assert.Equal(TimeSpan.FromMinutes(4), result.RetryAfter);
+    }
+
+    [Fact]
+    public async Task Missing_retry_after_is_null()
+    {
+        _handler.Respond = _ => new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+
+        Assert.Null((await CreateClient().FetchAsync()).RetryAfter);
+    }
+
+    [Fact]
+    public async Task Error_body_is_kept_on_one_line_as_detail()
+    {
+        _handler.Respond = _ => new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+        {
+            Content = new StringContent("{\n  \"error\": {\"type\": \"rate_limit_error\"}\n}"),
+        };
+
+        var result = await CreateClient().FetchAsync();
+
+        Assert.Equal("{ \"error\": {\"type\": \"rate_limit_error\"} }", result.Detail);
+    }
+
+    [Fact]
+    public async Task Long_error_body_is_truncated()
+    {
+        _handler.Respond = _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        {
+            Content = new StringContent(new string('x', 1000)),
+        };
+
+        var result = await CreateClient().FetchAsync();
+
+        Assert.Equal(new string('x', 200) + "…", result.Detail);
     }
 
     [Fact]
@@ -82,6 +145,8 @@ public sealed class UsageClientTests : IDisposable
         var result = await CreateClient().FetchAsync();
 
         Assert.Equal(FetchStatus.Error, result.Status);
+        Assert.Equal(200, result.HttpStatus);
+        Assert.StartsWith("UsageParseException", result.Detail);
     }
 
     [Fact]
@@ -92,6 +157,8 @@ public sealed class UsageClientTests : IDisposable
         var result = await CreateClient().FetchAsync();
 
         Assert.Equal(FetchStatus.Error, result.Status);
+        Assert.Null(result.HttpStatus);
+        Assert.Equal("HttpRequestException: offline", result.Detail);
     }
 
     private sealed class FakeHandler : HttpMessageHandler

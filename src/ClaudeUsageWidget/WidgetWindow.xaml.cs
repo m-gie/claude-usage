@@ -11,6 +11,7 @@ public partial class WidgetWindow : Window
 {
     private static readonly Brush DimBrush = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
     private static readonly Brush WarningBrush = new SolidColorBrush(Palette.Orange);
+    private static readonly Brush GoodBrush = new SolidColorBrush(Palette.Green);
     private static readonly Brush UnlockedBorder = new SolidColorBrush(Color.FromArgb(0x80, 0x5A, 0xA9, 0xFF));
 
     private bool _unlocked;
@@ -57,7 +58,12 @@ public partial class WidgetWindow : Window
         CountdownText.Text = state.CountdownLine;
         CountdownText.Visibility = state.CountdownLine.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         DetailText.Text = state.DetailLine ?? "";
-        DetailText.Foreground = state.DetailIsWarning ? WarningBrush : DimBrush;
+        DetailText.Foreground = state.DetailTone switch
+        {
+            DetailTone.Warning => WarningBrush,
+            DetailTone.Good => GoodBrush,
+            _ => DimBrush,
+        };
         DetailText.Visibility = state.DetailLine is null ? Visibility.Collapsed : Visibility.Visible;
     }
 

@@ -16,21 +16,24 @@ public sealed partial class TrayIcon : IDisposable
 
     public TrayIcon(Action toggle, Func<bool> isVisible, Action refresh,
         Func<bool> getUnlocked, Action<bool> setUnlocked,
-        Func<bool> getAutostart, Action<bool> setAutostart, Action quit)
+        Func<bool> getAutostart, Action<bool> setAutostart,
+        Func<bool> getAlwaysEstimate, Action<bool> setAlwaysEstimate, Action quit)
     {
         var showHide = new ToolStripMenuItem("Show widget", null, (_, _) => toggle());
         var refreshItem = new ToolStripMenuItem("Refresh now", null, (_, _) => refresh());
         var unlock = new ToolStripMenuItem("Unlock position", null, (_, _) => setUnlocked(!getUnlocked()));
         var autostart = new ToolStripMenuItem("Start with Windows", null, (_, _) => setAutostart(!getAutostart()));
+        var alwaysEstimate = new ToolStripMenuItem("Always show estimate", null, (_, _) => setAlwaysEstimate(!getAlwaysEstimate()));
         var quitItem = new ToolStripMenuItem("Quit", null, (_, _) => quit());
 
         var menu = new ContextMenuStrip();
-        menu.Items.AddRange([showHide, refreshItem, unlock, autostart, new ToolStripSeparator(), quitItem]);
+        menu.Items.AddRange([showHide, refreshItem, alwaysEstimate, unlock, autostart, new ToolStripSeparator(), quitItem]);
         menu.Opening += (_, _) =>
         {
             showHide.Text = isVisible() ? "Hide widget" : "Show widget";
             unlock.Checked = getUnlocked();
             autostart.Checked = getAutostart();
+            alwaysEstimate.Checked = getAlwaysEstimate();
         };
 
         _icon = new NotifyIcon { ContextMenuStrip = menu, Text = "Claude: Loading…", Visible = true };
@@ -47,6 +50,9 @@ public sealed partial class TrayIcon : IDisposable
         _icon.Text = state.Tooltip.Length > NotifyIconTextLimit ? state.Tooltip[..NotifyIconTextLimit] : state.Tooltip;
         SetIcon(state.Percent, state.Level);
     }
+
+    /// <summary>Whether the shell still shows the icon, for the diagnostics log.</summary>
+    public string Probe() => WindowProbe.DescribeTray(_icon);
 
     public void ShowBalloon(string text) => _icon.ShowBalloonTip(5000, "Claude Usage", text, ToolTipIcon.Warning);
 

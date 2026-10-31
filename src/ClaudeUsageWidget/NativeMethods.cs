@@ -16,6 +16,9 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     public static partial nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
 
+    [LibraryImport("user32.dll", EntryPoint = "RegisterWindowMessageW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial uint RegisterWindowMessage(string message);
+
     public static void SetExStyle(nint hwnd, long add, long remove)
     {
         var style = (long)GetWindowLongPtr(hwnd, GWL_EXSTYLE);

@@ -6,16 +6,17 @@ namespace ClaudeUsageWidget.Core;
 public sealed class AppSettings
 {
     public const string DefaultHotkey = "Ctrl+Alt+U";
-    public const int MinPollSeconds = 15;
+    public const int MinPollSeconds = 120;
     public const int MaxPollSeconds = 3600;
 
     public double? Left { get; set; }
     public double? Top { get; set; }
     public bool WidgetVisible { get; set; } = true;
     public string Hotkey { get; set; } = DefaultHotkey;
-    public int PollSeconds { get; set; } = 60;
+    public int PollSeconds { get; set; } = 180;
     public bool StartWithWindows { get; set; }
     public bool PositionUnlocked { get; set; }
+    public bool AlwaysShowEstimate { get; set; }
 }
 
 public sealed class SettingsStore(string path)

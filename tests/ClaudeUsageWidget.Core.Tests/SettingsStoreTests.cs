@@ -22,9 +22,10 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Null(s.Top);
         Assert.True(s.WidgetVisible);
         Assert.Equal("Ctrl+Alt+U", s.Hotkey);
-        Assert.Equal(60, s.PollSeconds);
+        Assert.Equal(180, s.PollSeconds);
         Assert.False(s.StartWithWindows);
         Assert.False(s.PositionUnlocked);
+        Assert.False(s.AlwaysShowEstimate);
     }
 
     [Fact]
@@ -34,7 +35,7 @@ public sealed class SettingsStoreTests : IDisposable
         store.Save(new AppSettings
         {
             Left = 100.5, Top = 20, WidgetVisible = false, Hotkey = "Ctrl+Shift+F9",
-            PollSeconds = 30, StartWithWindows = true, PositionUnlocked = true,
+            PollSeconds = 300, StartWithWindows = true, PositionUnlocked = true, AlwaysShowEstimate = true,
         });
 
         var s = store.Load();
@@ -43,9 +44,10 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(20, s.Top);
         Assert.False(s.WidgetVisible);
         Assert.Equal("Ctrl+Shift+F9", s.Hotkey);
-        Assert.Equal(30, s.PollSeconds);
+        Assert.Equal(300, s.PollSeconds);
         Assert.True(s.StartWithWindows);
         Assert.True(s.PositionUnlocked);
+        Assert.True(s.AlwaysShowEstimate);
     }
 
     [Fact]
@@ -64,7 +66,7 @@ public sealed class SettingsStoreTests : IDisposable
 
         var s = new SettingsStore(SettingsPath).Load();
 
-        Assert.Equal(60, s.PollSeconds);
+        Assert.Equal(180, s.PollSeconds);
         Assert.Equal("Ctrl+Alt+U", s.Hotkey);
     }
 
@@ -78,11 +80,20 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Old_one_minute_poll_is_raised_to_minimum()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(SettingsPath, """{"PollSeconds":60}""");
+
+        Assert.Equal(120, new SettingsStore(SettingsPath).Load().PollSeconds);
+    }
+
+    [Fact]
     public void Poll_clamped()
     {
         Directory.CreateDirectory(_dir);
         File.WriteAllText(SettingsPath, """{"PollSeconds":0}""");
 
-        Assert.Equal(15, new SettingsStore(SettingsPath).Load().PollSeconds);
+        Assert.Equal(120, new SettingsStore(SettingsPath).Load().PollSeconds);
     }
 }

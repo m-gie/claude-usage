@@ -49,25 +49,26 @@ public class UsagePredictorTests
     }
 
     [Fact]
-    public void No_prediction_when_after_reset()
+    public void Prediction_after_reset_is_still_returned()
     {
         var p = new UsagePredictor();
         p.Add(T0, U(40));
         p.Add(T0.AddMinutes(20), U(42));
 
-        Assert.Null(p.PredictFull());
+        // 0.1%/min from 42% at T0+20m: 580 more minutes, well past the reset; the display decides what to show.
+        Assert.Equal(T0.AddMinutes(600), p.PredictFull());
     }
 
     [Fact]
     public void Old_samples_dropped()
     {
-        // With the 14:00 sample the pace would predict ~16:20; without it the limit lands after the reset.
+        // With the 14:00 sample the pace (0.64%/min) would predict ~15:20; without it, 0.2%/min from 42% gives 19:40.
         var p = new UsagePredictor();
         p.Add(T0, U(10));
         p.Add(T0.AddMinutes(40), U(40));
         p.Add(T0.AddMinutes(50), U(42));
 
-        Assert.Null(p.PredictFull());
+        Assert.Equal(T0.AddMinutes(340), p.PredictFull());
     }
 
     [Fact]
