@@ -26,6 +26,7 @@ public partial class App : Application
     private WidgetWindow? _widget;
     private TrayIcon? _tray;
     private DispatcherTimer? _healthCheck;
+    private ForegroundWatcher? _foreground;
     private string? _lastHealth;
     private string _exitReason = "shutdown";
 
@@ -118,7 +119,13 @@ public partial class App : Application
             _widget.Show();
 
         // Log what Windows says the user can see, whenever it changes, so a vanished widget leaves a trace.
-        _healthCheck = new DispatcherTimer(HealthCheckInterval, DispatcherPriority.Background, (_, _) => LogHealthIfChanged(), Dispatcher);
+        // Something occasionally pushes the widget out of the topmost band; notice and put it back.
+        _foreground = new ForegroundWatcher(() => EnsureTopmost("foreground change"));
+        _healthCheck = new DispatcherTimer(HealthCheckInterval, DispatcherPriority.Background, (_, _) =>
+        {
+            EnsureTopmost("health check");
+            LogHealthIfChanged();
+        }, Dispatcher);
         _healthCheck.Start();
         LogHealthIfChanged();
     }
@@ -133,6 +140,17 @@ public partial class App : Application
             return;
         _lastHealth = health;
         _log.Write($"state: {health}");
+    }
+
+    private void EnsureTopmost(string trigger)
+    {
+        if (_widget is not { IsVisible: true })
+            return;
+        var hwnd = _widget.Handle;
+        if (NativeMethods.IsTopmost(hwnd, out var detail))
+            return;
+        var restored = NativeMethods.MakeTopmost(hwnd) && NativeMethods.IsTopmost(hwnd, out _);
+        _log.Write($"topmost lost ({trigger}): {detail}; {(restored ? "restored" : "restore failed")}");
     }
 
     private nint WatchShellMessages(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
@@ -231,6 +249,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _healthCheck?.Stop();
+        _foreground?.Dispose();
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         SystemEvents.SessionSwitch -= OnSessionSwitch;
